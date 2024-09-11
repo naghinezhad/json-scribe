@@ -5,6 +5,9 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 class AppColors {
   static const Color black = Colors.black;
   static const Color white = Colors.white;
+  static const Color grey = Colors.grey;
+
+  static Color get grey200 => Colors.grey.shade200;
 
   AppColors._();
 }

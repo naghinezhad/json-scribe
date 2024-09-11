@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:json_scribe/services/theme_service.dart';
 import 'dart:convert';
 
 class JsonToDartPage extends StatefulWidget {
@@ -10,30 +12,35 @@ class JsonToDartPage extends StatefulWidget {
 }
 
 class _JsonToDartPageState extends State<JsonToDartPage> {
-  final _jsonController = TextEditingController();
-  final _classNameController = TextEditingController();
+  final TextEditingController _jsonController = TextEditingController();
+  final TextEditingController _classNameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   String _generatedCode = '';
+  bool _isCodeGenerated = false;
+
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    _classNameController.dispose();
+    super.dispose();
+  }
 
   void _generateDartCode() {
-    if (_jsonController.text.isEmpty || _classNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لطفاً JSON و نام کلاس را وارد کنید.')),
-      );
-      return;
-    }
-
-    try {
-      final jsonData = json.decode(_jsonController.text);
-      final className = _classNameController.text;
-      final convertedData = _convertDynamic(jsonData);
-      final dartCode = _convertJsonToDart(convertedData, className);
-      setState(() {
-        _generatedCode = dartCode;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطا در تجزیه JSON: $e')),
-      );
+    if (_formKey.currentState!.validate()) {
+      try {
+        final jsonData = json.decode(_jsonController.text);
+        final className = _classNameController.text;
+        final convertedData = _convertDynamic(jsonData);
+        final dartCode = _convertJsonToDart(convertedData, className);
+        setState(() {
+          _generatedCode = dartCode;
+          _isCodeGenerated = true;
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error parsing JSON: $e')),
+        );
+      }
     }
   }
 
@@ -64,7 +71,7 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
     } else if (jsonData is List) {
       buffer.writeln(_convertListToDartClass(jsonData, className));
     } else {
-      throw Exception('داده JSON باید یک شیء یا آرایه باشد.');
+      throw Exception('JSON data must be an object or an array.');
     }
 
     return buffer.toString();
@@ -180,53 +187,167 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
   }
 
   void _copyToClipboard() {
-    Clipboard.setData(ClipboardData(text: _generatedCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('کد در کلیپ‌بورد کپی شد.')),
-    );
+    if (_isCodeGenerated) {
+      Clipboard.setData(ClipboardData(text: _generatedCode));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code copied to clipboard.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please generate Dart code first.')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تبدیل کننده JSON به Dart'),
+        title: const Text('JSON to Dart Converter'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: IconButton(
+              icon: Icon(
+                themeProvider.darkTheme
+                    ? Icons.wb_sunny
+                    : Icons.nightlight_round,
+              ),
+              onPressed: () {
+                themeProvider.darkTheme = !themeProvider.darkTheme;
+              },
+            ),
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _classNameController,
-              decoration: const InputDecoration(labelText: 'نام کلاس'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _jsonController,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'JSON ورودی',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _generateDartCode,
-              child: const Text('تولید کد Dart'),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(_generatedCode),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: _copyToClipboard,
-              child: const Text('کپی کد'),
-            ),
-          ],
+      body: Form(
+        key: _formKey,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth > 600) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: SingleChildScrollView(
+                      child: _buildInputColumn(),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: SingleChildScrollView(
+                      child: _buildOutputColumn(),
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildInputColumn(),
+                    _buildOutputColumn(),
+                  ],
+                ),
+              );
+            }
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildInputColumn() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextFormField(
+            controller: _classNameController,
+            decoration: const InputDecoration(
+              labelText: 'Class Name',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a class name';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _jsonController,
+            maxLines: 10,
+            decoration: const InputDecoration(
+              labelText: 'Input JSON',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter JSON data';
+              }
+              try {
+                json.decode(value);
+              } catch (e) {
+                return 'Invalid JSON format';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _generateDartCode,
+            child: const Text('Generate Dart Code'),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: _isCodeGenerated ? _copyToClipboard : null,
+            child: const Text('Copy Code'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOutputColumn() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            constraints: const BoxConstraints(minHeight: 200),
+            decoration: BoxDecoration(
+              color:
+                  themeProvider.darkTheme ? Colors.grey[800] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: themeProvider.darkTheme
+                      ? Colors.black.withOpacity(0.5)
+                      : Colors.grey.withOpacity(0.5),
+                  spreadRadius: 2,
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              child: Text(
+                _generatedCode,
+                style: TextStyle(
+                  color: themeProvider.darkTheme ? Colors.white : Colors.black,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
