@@ -85,13 +85,15 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
       final key = entry.key;
       final value = entry.value;
       final type = _getTypeName(value, key);
+      final camelCaseKey = _toCamelCase(key);
 
-      buffer.writeln('  $type? $key;');
+      buffer.writeln('  $type? $camelCaseKey;');
     }
 
     buffer.writeln('\n  $className({');
     for (var key in map.keys) {
-      buffer.writeln('    this.$key,');
+      final camelCaseKey = _toCamelCase(key);
+      buffer.writeln('    this.$camelCaseKey,');
     }
     buffer.writeln('  });');
 
@@ -100,14 +102,15 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
     for (var entry in map.entries) {
       final key = entry.key;
       final value = entry.value;
+      final camelCaseKey = _toCamelCase(key);
       if (value is Map) {
         buffer.writeln(
-            '    $key: json["$key"] != null ? ${_capitalizeFirstLetter(key)}.fromJson(json["$key"]) : null,');
+            '    $camelCaseKey: json["$key"] != null ? ${_capitalizeFirstLetter(camelCaseKey)}.fromJson(json["$key"]) : null,');
       } else if (value is List && value.isNotEmpty && value[0] is Map) {
         buffer.writeln(
-            '    $key: json["$key"] != null ? List<${_getTypeName(value[0], _singularize(key))}>.from(json["$key"].map((x) => ${_getTypeName(value[0], _singularize(key))}.fromJson(x))) : null,');
+            '    $camelCaseKey: json["$key"] != null ? List<${_getTypeName(value[0], _singularize(camelCaseKey))}>.from(json["$key"].map((x) => ${_getTypeName(value[0], _singularize(camelCaseKey))}.fromJson(x))) : null,');
       } else {
-        buffer.writeln('    $key: json["$key"],');
+        buffer.writeln('    $camelCaseKey: json["$key"],');
       }
     }
     buffer.writeln('  );');
@@ -116,13 +119,14 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
     for (var entry in map.entries) {
       final key = entry.key;
       final value = entry.value;
+      final camelCaseKey = _toCamelCase(key);
       if (value is Map) {
-        buffer.writeln('    "$key": $key?.toJson(),');
+        buffer.writeln('    "$key": $camelCaseKey?.toJson(),');
       } else if (value is List && value.isNotEmpty && value[0] is Map) {
         buffer.writeln(
-            '    "$key": $key != null ? List<dynamic>.from($key!.map((x) => x.toJson())) : null,');
+            '    "$key": $camelCaseKey != null ? List<dynamic>.from($camelCaseKey!.map((x) => x.toJson())) : null,');
       } else {
-        buffer.writeln('    "$key": $key,');
+        buffer.writeln('    "$key": $camelCaseKey,');
       }
     }
     buffer.writeln('  };');
@@ -133,12 +137,12 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
       final value = entry.value;
       if (value is Map<String, dynamic>) {
         buffer.writeln(
-            '\n${_convertMapToDartClass(value, _capitalizeFirstLetter(entry.key))}');
+            '\n${_convertMapToDartClass(value, _capitalizeFirstLetter(_toCamelCase(entry.key)))}');
       } else if (value is List &&
           value.isNotEmpty &&
           value[0] is Map<String, dynamic>) {
         buffer.writeln(
-            '\n${_convertMapToDartClass(value[0], _capitalizeFirstLetter(_singularize(entry.key)))}');
+            '\n${_convertMapToDartClass(value[0], _capitalizeFirstLetter(_singularize(_toCamelCase(entry.key))))}');
       }
     }
 
@@ -167,7 +171,7 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
       if (value.isEmpty) return 'List<dynamic>';
       return 'List<${_getTypeName(value.first, _singularize(key))}>';
     }
-    if (value is Map) return _capitalizeFirstLetter(key);
+    if (value is Map) return _capitalizeFirstLetter(_toCamelCase(key));
     return 'dynamic';
   }
 
@@ -184,6 +188,13 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
       return text.substring(0, text.length - 1);
     }
     return text;
+  }
+
+  String _toCamelCase(String text) {
+    final words = text.split(RegExp(r'[_\s]+'));
+    if (words.isEmpty) return '';
+    return words[0].toLowerCase() +
+        words.sublist(1).map(_capitalizeFirstLetter).join('');
   }
 
   void _copyToClipboard() {
