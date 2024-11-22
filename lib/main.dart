@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:json_scribe/apps/theme_app.dart';
-import 'package:json_scribe/pages/json_to_dart_page.dart';
 import 'package:json_scribe/services/theme_service.dart';
+import 'package:json_scribe/pages/json_to_dart_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +44,7 @@ class _MainAppState extends State<MainApp> {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return MaterialApp(
+            title: "json scribe",
             debugShowCheckedModeBanner: false,
             scrollBehavior: const MaterialScrollBehavior().copyWith(
               dragDevices: {
