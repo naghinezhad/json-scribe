@@ -11,9 +11,9 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   provider: ^6.1.2
-  flex_color_scheme: ^8.0.1
+  flex_color_scheme: ^8.0.2
   google_fonts: ^6.2.1
-  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:json_scribe/services/theme_service.dart';
+import 'package:json_scribe/services/theme_service/theme_service.dart';
+import 'package:json_scribe/services/json_to_dart_service/json_to_dart_provider.dart';
 import 'dart:convert';
 
 class JsonToDartPage extends StatefulWidget {
@@ -15,8 +16,6 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
   final TextEditingController _jsonController = TextEditingController();
   final TextEditingController _classNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  String _generatedCode = '';
-  bool _isCodeGenerated = false;
 
   @override
   void dispose() {
@@ -26,16 +25,18 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
   }
 
   void _generateDartCode() {
+    final jsonToDartProvider = Provider.of<JsonToDartProvider>(
+      context,
+      listen: false,
+    );
+
     if (_formKey.currentState!.validate()) {
       try {
         final jsonData = json.decode(_jsonController.text);
         final className = _classNameController.text;
         final convertedData = _convertDynamic(jsonData);
         final dartCode = _convertJsonToDart(convertedData, className);
-        setState(() {
-          _generatedCode = dartCode;
-          _isCodeGenerated = true;
-        });
+        jsonToDartProvider.generateDartCodes(dartCode);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error parsing JSON: $e')),
@@ -198,8 +199,13 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
   }
 
   void _copyToClipboard() {
-    if (_isCodeGenerated) {
-      Clipboard.setData(ClipboardData(text: _generatedCode));
+    final jsonToDartProvider = Provider.of<JsonToDartProvider>(
+      context,
+      listen: false,
+    );
+
+    if (jsonToDartProvider.isCodeGenerated) {
+      Clipboard.setData(ClipboardData(text: jsonToDartProvider.generatedCode));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Code copied to clipboard.')),
       );
@@ -271,6 +277,7 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
   }
 
   Widget _buildInputColumn() {
+    final jsonToDartProvider = Provider.of<JsonToDartProvider>(context);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -316,7 +323,8 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
           ),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: _isCodeGenerated ? _copyToClipboard : null,
+            onPressed:
+                jsonToDartProvider.isCodeGenerated ? _copyToClipboard : null,
             child: const Text('Copy Code'),
           ),
         ],
@@ -326,6 +334,7 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
 
   Widget _buildOutputColumn() {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final jsonToDartProvider = Provider.of<JsonToDartProvider>(context);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -340,8 +349,8 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
               boxShadow: [
                 BoxShadow(
                   color: themeProvider.darkTheme
-                      ? Colors.black.withOpacity(0.5)
-                      : Colors.grey.withOpacity(0.5),
+                      ? Colors.black.withValues(alpha: 0.5)
+                      : Colors.grey.withValues(alpha: 0.5),
                   spreadRadius: 2,
                   blurRadius: 5,
                   offset: const Offset(0, 3),
@@ -351,7 +360,7 @@ class _JsonToDartPageState extends State<JsonToDartPage> {
             padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
               child: Text(
-                _generatedCode,
+                jsonToDartProvider.generatedCode,
                 style: TextStyle(
                   color: themeProvider.darkTheme ? Colors.white : Colors.black,
                 ),

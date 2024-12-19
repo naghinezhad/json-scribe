@@ -13,7 +13,7 @@ class AppColors {
 }
 
 class Styles {
-  static ThemeData themeData(bool isDarkTheme, BuildContext context) {
+  static ThemeData themeData(bool isDarkTheme) {
     TextTheme textTheme(Color textColor) => TextTheme(
           displayLarge: GoogleFonts.roboto(
             fontWeight: FontWeight.w400,
